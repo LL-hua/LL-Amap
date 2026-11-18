@@ -19,10 +19,14 @@ public class EarthworkActivity extends BaseNavActivity {
     private LinearLayout content;
 
     @Override
-    protected String currentTab() { return "earth"; }
+    protected String currentTab() {
+        return "earth";
+    }
 
     @Override
-    protected String pageTitle() { return "土方计算"; }
+    protected String pageTitle() {
+        return "土方计算";
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +37,7 @@ public class EarthworkActivity extends BaseNavActivity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(20), dp(20), dp(20), dp(20));
         setContent(content);
-        
+
         initUI();
     }
 
@@ -59,7 +63,7 @@ public class EarthworkActivity extends BaseNavActivity {
             tvEmpty.setTextSize(16);
             tvEmpty.setGravity(Gravity.CENTER);
             content.addView(tvEmpty, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
             return;
         }
 
@@ -73,9 +77,9 @@ public class EarthworkActivity extends BaseNavActivity {
         etStation = new EditText(this);
         etStation.setHint("桩号（米）");
         etStation.setText("103200");
+        etStation.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
         etStation.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         inputRow.addView(etStation);
-
         Button btnCalc = new Button(this);
         btnCalc.setText("计算");
         inputRow.addView(btnCalc);
@@ -88,7 +92,7 @@ public class EarthworkActivity extends BaseNavActivity {
         sectionView = new EarthworkView(this);
         sectionView.setBackgroundColor(0xFFFFFFFF);
         sectionView.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         chartBox.addView(sectionView);
 
         TextView btnReset = new TextView(this);
@@ -99,8 +103,8 @@ public class EarthworkActivity extends BaseNavActivity {
         btnReset.setPadding(20, 5, 20, 10);
         btnReset.setGravity(Gravity.CENTER);
         FrameLayout.LayoutParams lpReset = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP | Gravity.RIGHT);
+        FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+        Gravity.TOP | Gravity.RIGHT);
         lpReset.topMargin = 10;
         lpReset.rightMargin = 10;
         btnReset.setLayoutParams(lpReset);
@@ -110,7 +114,9 @@ public class EarthworkActivity extends BaseNavActivity {
 
         btnReset.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sectionView.resetView(); }
+            public void onClick(View v) {
+                sectionView.resetView();
+            }
         });
 
         btnCalc.setOnClickListener(new View.OnClickListener() {
@@ -124,7 +130,7 @@ public class EarthworkActivity extends BaseNavActivity {
     // 抽离出来的核心计算方法
     private void performCalculate() {
         if (app.data == null || app.data.currentCalculator == null) return;
-        
+
         String input = etStation.getText().toString().trim();
         double station;
         try {

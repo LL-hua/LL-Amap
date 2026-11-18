@@ -86,6 +86,7 @@ public class CalcActivity extends BaseNavActivity {
         rowK.addView(tvK);
         etK = new EditText(this);
         etK.setHint("米");
+        etK.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); // 👈 加这行
         etK.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         rowK.addView(etK);
         boxForward.addView(rowK);
@@ -98,6 +99,7 @@ public class CalcActivity extends BaseNavActivity {
         rowB.addView(tvB);
         etB = new EditText(this);
         etB.setHint("米（左负右正）");
+        etB.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); // 👈 加这行
         etB.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         rowB.addView(etB);
         boxForward.addView(rowB);
@@ -114,6 +116,7 @@ public class CalcActivity extends BaseNavActivity {
         rowX.addView(tvX);
         etX = new EditText(this);
         etX.setHint("X 坐标");
+        etX.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); // 👈 加这行
         etX.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         rowX.addView(etX);
         boxReverse.addView(rowX);
@@ -126,6 +129,7 @@ public class CalcActivity extends BaseNavActivity {
         rowY.addView(tvY);
         etY = new EditText(this);
         etY.setHint("Y 坐标");
+        etY.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); // 👈 加这行
         etY.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         rowY.addView(etY);
         boxReverse.addView(rowY);

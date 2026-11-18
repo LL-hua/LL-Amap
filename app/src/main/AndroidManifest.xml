@@ -8,10 +8,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-    <!-- 蓝牙基础权限 -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <!-- Android 12+ 必须的蓝牙权限 -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
@@ -21,7 +19,7 @@
         android:name=".MyApp"
         android:allowBackup="true"
         android:icon="@drawable/ico"
-        android:label="Mwanga"
+        android:label="73公里"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Light.NoTitleBar">
 

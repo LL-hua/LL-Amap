@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 public class RealMapActivity extends BaseNavActivity {
-
+    private WifiRtkManager wifiRtkManager; // 新增 WiFi 管理器
     private MyApp app;
     private CanvasMapView mapView; // 底层地图 + 文字
     private CadGpuOverlayView cadGpuView; // 顶层 GPU CAD 覆盖层 (几何)
@@ -158,35 +158,67 @@ public class RealMapActivity extends BaseNavActivity {
     }
 
     private void setupRtk() {
-        app.rtkManager.setCallback(new BluetoothRtkManager.RtkCallback() {
+        // 先初始化 WiFi 管理器
+        if (wifiRtkManager == null) {
+            wifiRtkManager = new WifiRtkManager();
+        }
+
+        // 统一的状态回调
+        BluetoothRtkManager.RtkCallback btCallback = new BluetoothRtkManager.RtkCallback() {
             @Override
             public void onRtkData(double lat, double lon, double alt, int fixQuality) {
-                app.currentRtkLat = lat;
-                app.currentRtkLon = lon;
-                app.currentRtkAlt = alt;
-                app.currentRtkFix = fixQuality;
-                app.hasRtkData = true;
-                app.rtkConnected = true;
-
-                String fixStr = fixQuality == 4 ? "固定解" : (fixQuality == 5 ? "浮点解" : "单点");
-                rtkStatus = "RTK " + fixStr;
-                if (tvRtkStatus != null) tvRtkStatus.setText(rtkStatus);
-
-                updateMapLocation(lat, lon);
+                handleRtkData(lat, lon, alt, fixQuality);
             }
 
             @Override
             public void onRtkStatus(String status) {
-                rtkStatus = status;
-                if (status.startsWith("已连接")) {
-                    app.rtkConnected = true;
-                } else if (status.equals("未连接") || status.equals("连接失败") || status.equals("连接断开")) {
-                    app.rtkConnected = false;
-                    app.hasRtkData = false;
-                }
-                if (tvRtkStatus != null) tvRtkStatus.setText(rtkStatus);
+                handleRtkStatus(status);
             }
-        });
+        };
+
+        WifiRtkManager.RtkCallback wifiCallback = new WifiRtkManager.RtkCallback() {
+            @Override
+            public void onRtkData(double lat, double lon, double alt, int fixQuality) {
+                handleRtkData(lat, lon, alt, fixQuality);
+            }
+
+            @Override
+            public void onRtkStatus(String status) {
+                handleRtkStatus(status);
+            }
+        };
+
+        // 绑定回调
+        app.rtkManager.setCallback(btCallback);
+        wifiRtkManager.setCallback(wifiCallback);
+    }
+
+// 提取出来的统一数据处理逻辑
+    private void handleRtkData(double lat, double lon, double alt, int fixQuality) {
+        app.currentRtkLat = lat;
+        app.currentRtkLon = lon;
+        app.currentRtkAlt = alt;
+        app.currentRtkFix = fixQuality;
+        app.hasRtkData = true;
+        app.rtkConnected = true;
+
+        String fixStr = fixQuality == 4 ? "固定解" : (fixQuality == 5 ? "浮点解" : "单点");
+        rtkStatus = "RTK " + fixStr;
+        if (tvRtkStatus != null) tvRtkStatus.setText(rtkStatus);
+
+        updateMapLocation(lat, lon);
+    }
+
+// 提取出来的统一状态处理逻辑
+    private void handleRtkStatus(String status) {
+        rtkStatus = status;
+        if (status.startsWith("已连接") || status.startsWith("WiFi已")) {
+            app.rtkConnected = true;
+        } else if (status.equals("未连接") || status.equals("连接失败") || status.equals("连接断开") || status.equals("WiFi连接失败") || status.equals("WiFi连接断开")) {
+            app.rtkConnected = false;
+            app.hasRtkData = false;
+        }
+        if (tvRtkStatus != null) tvRtkStatus.setText(rtkStatus);
     }
 
     private void updateMapLocation(double lat, double lon) {
@@ -536,7 +568,7 @@ public class RealMapActivity extends BaseNavActivity {
         title.setTextColor(0xFF333333);
         layout.addView(title);
 
-        // 1. RTK 连接
+        // 1. 蓝牙 RTK 连接（原有代码）
         TextView btnRtk = new TextView(this);
         btnRtk.setText("连接蓝牙 RTK (当前: " + rtkStatus + ")");
         btnRtk.setTextSize(16);
@@ -545,6 +577,15 @@ public class RealMapActivity extends BaseNavActivity {
         btnRtk.setOnClickListener(v -> checkAndRequestBluetooth());
         layout.addView(btnRtk);
 
+// ================= 【新增】WiFi RTK 连接 =================
+        TextView btnWifiRtk = new TextView(this);
+        btnWifiRtk.setText("连接 WiFi RTK (局域网/热点)");
+        btnWifiRtk.setTextSize(16);
+        btnWifiRtk.setTextColor(0xFF00A86B); // 绿蓝色，区分蓝牙
+        btnWifiRtk.setPadding(0, 0, 0, dp(16));
+        btnWifiRtk.setOnClickListener(v -> showWifiRtkDialog());
+        layout.addView(btnWifiRtk);
+// =======================================================
         // 2. RTK 点校正
         TextView btnCorrection = new TextView(this);
         btnCorrection.setText("RTK 点校正 (当前偏移: X=" + String.format("%.3f", app.rtkOffsetX) + ", Y=" + String.format("%.3f", app.rtkOffsetY) + ")");
@@ -1656,5 +1697,59 @@ public class RealMapActivity extends BaseNavActivity {
         builder.setView(scrollView);
         builder.setPositiveButton("我知道了", null);
         builder.show();
+    }
+
+    private void showWifiRtkDialog() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(dp(24), dp(24), dp(24), dp(16));
+
+        TextView tvTip = new TextView(this);
+        tvTip.setText("请确保手机已连接 RTK 的 WiFi 热点，或处于同一局域网。");
+        tvTip.setTextSize(13);
+        tvTip.setTextColor(0xFF666666);
+        layout.addView(tvTip);
+
+        EditText etIp = new EditText(this);
+        etIp.setHint("IP 地址 (如 192.168.4.1)");
+        etIp.setText("192.168.4.1"); // 常见默认值
+        etIp.setInputType(InputType.TYPE_CLASS_TEXT);
+        layout.addView(etIp);
+
+        EditText etPort = new EditText(this);
+        etPort.setHint("端口 (如 9000)");
+        etPort.setText("9000"); // 常见默认值
+        etPort.setInputType(InputType.TYPE_CLASS_NUMBER);
+        layout.addView(etPort);
+
+        new AlertDialog.Builder(this)
+                .setTitle("WiFi 连接 RTK")
+                .setView(layout)
+                .setPositiveButton("连接", (dialog, which) -> {
+                    String ip = etIp.getText().toString().trim();
+                    String portStr = etPort.getText().toString().trim();
+                    if (ip.isEmpty() || portStr.isEmpty()) {
+                        Toast.makeText(this, "IP和端口不能为空", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    int port = Integer.parseInt(portStr);
+
+                    // 互斥逻辑：断开蓝牙，连接WiFi
+                    app.rtkManager.disconnect();
+                    if (wifiRtkManager != null) {
+                        wifiRtkManager.connect(ip, port);
+                    }
+
+                    if (settingsDialog != null) settingsDialog.dismiss();
+                })
+                .setNegativeButton("取消", null)
+                .setNeutralButton("断开 WiFi", (dialog, which) -> {
+                    if (wifiRtkManager != null) wifiRtkManager.disconnect();
+                    rtkStatus = "未连接";
+                    app.rtkConnected = false;
+                    app.hasRtkData = false;
+                    if (tvRtkStatus != null) tvRtkStatus.setText(rtkStatus);
+                })
+                .show();
     }
 }
