@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 折叠地图轮廓与折痕 -->
+    <path
+        android:pathData="M31,34 L46,29 L62,34 L77,29 L77,63 L62,68 L46,63 L31,68 Z
+                        M46,29 L46,63 M62,34 L62,68"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#1E3A4C"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- 地图内部道路/等高线细线 -->
+    <path
+        android:pathData="M34,45 Q42,41 46,46 T62,48 Q70,44 74,40
+                        M35,57 Q44,54 53,58 T73,55"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#007C91"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round" />
+
+    <!-- 地图定位大头针 -->
+    <path
+        android:pathData="M62,36 C58.7,36 56,38.7 56,42 C56,46.5 62,52 62,52 C62,52 68,46.5 68,42 C68,38.7 65.3,36 62,36 Z"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#1E3A4C"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M62,40.3 A1.7,1.7 0 1,0 62,43.7 A1.7,1.7 0 1,0 62,40.3 Z"
+        android:fillColor="#007C91" />
+
+    <!-- 底部 map 字样（安全区内居中） -->
+    <path
+        android:pathData="M43.5,81.5 L43.5,76.8 M43.5,78.2 C44.2,76.8 46.2,76.8 46.5,78.2 C47.2,76.8 49.2,76.8 49.2,78.5 L49.2,81.5 M46.5,78.2 L46.5,81.5
+                        M55.2,78.2 C54.7,77 52.2,77 51.8,78.8 C51.5,80.5 52.8,81.7 54.5,81.5 C55,81.4 55.2,81 55.2,80.5 M55.2,77.2 L55.2,81.5
+                        M58.2,77.2 L58.2,83.2 M58.2,78.3 C58.8,77 61.2,77 61.5,79 C61.8,80.8 59.8,81.8 58.2,81"
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#1E3A4C"
+        android:strokeWidth="1.15"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

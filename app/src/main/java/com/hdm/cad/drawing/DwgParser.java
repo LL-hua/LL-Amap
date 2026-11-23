@@ -34,26 +34,31 @@ public class DwgParser {
                 ObjectRecord rec = ObjRecParser.parseObjectRecord(objectsData, ref, ver.isR2010Plus());
                 ObjHeader h = ObjRecParser.parseObjHeader(rec);
                 String typeName = ObjTypeCode.entityTypeName(h.typeCode, null);
-                
+
                 // --- 提取 LAYER (0x33) 对象 ---
                 if (h.typeCode == 0x33) {
                     BitStream r = rec.bodyBitStream();
                     r.setBitPos(h.dataStartBit);
-                    
+
                     long objSizeBit = 0;
                     if ((feats & 0x001) != 0) objSizeBit = r.readRL();
-                    
-                    r.readH(); 
-                    while (true) { int sz = r.readBS(); if (sz == 0) break; r.readH(); r.readRCS(sz); } 
-                    r.readBL(); 
-                    if (ver.ordinal() >= DwgVersion.VerR2004.ordinal()) r.readB(); 
-                    if (ver.ordinal() >= DwgVersion.VerR2013.ordinal()) r.readB(); 
-                    
+
+                    r.readH();
+                    while (true) {
+                        int sz = r.readBS();
+                        if (sz == 0) break;
+                        r.readH();
+                        r.readRCS(sz);
+                    }
+                    r.readBL();
+                    if (ver.ordinal() >= DwgVersion.VerR2004.ordinal()) r.readB();
+                    if (ver.ordinal() >= DwgVersion.VerR2013.ordinal()) r.readB();
+
                     String name = "";
                     if (ver.ordinal() >= DwgVersion.VerR2007.ordinal()) {
-                        long bitsizeAbs = rec.dataEndBit(); 
+                        long bitsizeAbs = rec.dataEndBit();
                         if ((feats & 0x001) != 0) bitsizeAbs = rec.bodyBitOffset + objSizeBit;
-                        
+
                         if (bitsizeAbs > 34) {
                             BitStream r2 = new BitStream(r.src);
                             r2.setBitPos(bitsizeAbs - 1);
@@ -75,32 +80,39 @@ public class DwgParser {
                     } else {
                         name = r.readTV(30);
                     }
-                    
+
                     if (ver.ordinal() >= DwgVersion.VerR2007.ordinal()) r.readBS();
-                    else { r.readB(); r.readBS(); r.readB(); }
-                    
+                    else {
+                        r.readB();
+                        r.readBS();
+                        r.readB();
+                    }
+
                     r.readBS(); // flag 70
-                    
+
                     int colorIdx = 7;
                     if (ver.ordinal() >= DwgVersion.VerR2004.ordinal()) {
-                        colorIdx = r.readBS(); r.readBL(); r.readRC();
+                        colorIdx = r.readBS();
+                        r.readBL();
+                        r.readRC();
                     } else {
                         colorIdx = r.readBS();
                     }
                     if (colorIdx <= 0 || colorIdx > 255) colorIdx = 7;
                     doc.layers.put(ref.handle, new Layer(ref.handle, name, colorIdx));
                 }
-                
+
                 // --- 提取实体图元 ---
                 if (ObjTypeCode.isEntityType(h.typeCode, null)) {
                     BitStream r = rec.bodyBitStream();
                     r.setBitPos(h.dataStartBit);
 
                     CommonEntityHead head = EntityHeadParser.parseEntityHead(r, rec.dataEndBit(), feats);
-                    head.handle = ref.handle; 
-                    
+                    head.handle = ref.handle;
+
                     EntityBase ent = EntityParser.decodeEntityByTypeVer(r, head, h.typeCode, ver, 30);
-                    ent.typeCode = h.typeCode; ent.typeName = typeName;
+                    ent.typeCode = h.typeCode;
+                    ent.typeName = typeName;
 
                     if (ent != null) {
                         // ==========================================
@@ -123,7 +135,7 @@ public class DwgParser {
                                 // 2. 索引色 (判断是否随层/随块 256/0)
                                 int idx = ent.color.index;
                                 if (idx == 256 || idx == 0) {
-                                    needLayerColor = true; 
+                                    needLayerColor = true;
                                 } else {
                                     finalColor.hasIndex = true;
                                     finalColor.index = idx;
@@ -144,7 +156,7 @@ public class DwgParser {
                             } else {
                                 // 确实找不到图层，用默认 7 号色（白底会自动反转为黑色）
                                 finalColor.hasIndex = true;
-                                finalColor.index = 7; 
+                                finalColor.index = 7;
                             }
                         }
                         ent.color = finalColor;
@@ -153,8 +165,10 @@ public class DwgParser {
                         if (typeName.equals("BLOCK")) {
                             currentBlockEntities = new ArrayList<>();
                         } else if (typeName.equals("ENDBLK")) {
-                            if (currentBlockEntities != null) doc.blocks.put(currentBlockHeader, currentBlockEntities);
-                            currentBlockEntities = null; currentBlockHeader = -1;
+                            if (currentBlockEntities != null)
+                                doc.blocks.put(currentBlockHeader, currentBlockEntities);
+                            currentBlockEntities = null;
+                            currentBlockHeader = -1;
                         } else if (!typeName.equals("SEQEND")) {
                             if (currentBlockEntities != null) currentBlockEntities.add(ent);
                             else {

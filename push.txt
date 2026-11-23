@@ -1,0 +1,1 @@
+cd ~/LL-android && git add -A && git commit -m "perf: 图标和名称）" && git push -f origin main && gh release upload v3.6.0 app/build/outputs/apk/release/app-release.apk --clobber

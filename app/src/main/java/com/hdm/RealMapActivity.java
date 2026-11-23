@@ -298,8 +298,8 @@ public class RealMapActivity extends BaseNavActivity {
             sources.add(new MapSource("谷歌路网", "https://mt1.google.com/vt/lyrs=r&hl=zh-CN&gl=cn&x={x}&y={y}&z={z}"));
         }
 
-        sources.add(0, new MapSource("图纸白 (无底图)", "blank://white"));
-        sources.add(0, new MapSource("CAD深色 (无底图)", "blank://dark"));
+        sources.add(0, new MapSource("纯白色", "blank://white"));
+        sources.add(0, new MapSource("纯深色", "blank://dark"));
 
         return sources;
     }

@@ -403,10 +403,10 @@ public class CanvasMapView extends View {
         // 判断是否为纯色底图
         boolean isBlank = false;
         if ("blank://dark".equals(url)) {
-            canvas.drawColor(0xFF2B2D30);
+            canvas.drawColor(0xFF000000);
             isBlank = true;
         } else if ("blank://white".equals(url)) {
-            canvas.drawColor(0xFFF8F9FA);
+            canvas.drawColor(0xFFFFFFFF);
             isBlank = true;
         } else {
             canvas.drawColor(Color.LTGRAY);
@@ -585,7 +585,6 @@ public class CanvasMapView extends View {
         }
 
         // CAD 文字
-// CAD 文字 (实心字，受开关控制)
         if (showCadText && !cadTexts.isEmpty()) {
             double worldSize = 256 * Math.pow(2, tileZoom);
             double metersPerScreenPixel = 156543.03392 * Math.cos(centerLat * Math.PI / 180.0) / (Math.pow(2, tileZoom) * totalScale);
@@ -607,14 +606,29 @@ public class CanvasMapView extends View {
         }
 
         // GPS
+        /**
+         * if (hasGps) { double[] gpsWorld = latLngToWorldPixel(gpsLat, gpsLng, tileZoom); float gx
+         * = (float) (gpsWorld[0] - startX), gy = (float) (gpsWorld[1] - startY); canvas.save();
+         * canvas.translate(gx, gy); canvas.rotate(gpsBearing); canvas.drawCircle(0, 0, 8,
+         * gpsStrokePaint); canvas.drawCircle(0, 0, 6, gpsPaint); Paint triPaint = new Paint();
+         * triPaint.setColor(0xCCFFFFFF); triPaint.setStyle(Paint.Style.FILL);
+         * triPaint.setAntiAlias(true); Paint triBorder = new Paint();
+         * triBorder.setColor(0x33000000); triBorder.setStyle(Paint.Style.STROKE);
+         * triBorder.setStrokeWidth(1f); triBorder.setAntiAlias(true); Path triPath = new Path();
+         * triPath.moveTo(0, -10); triPath.lineTo(-3.5f, -1); triPath.lineTo(3.5f, -1);
+         * triPath.close(); canvas.drawPath(triPath, triPaint); canvas.drawPath(triPath, triBorder);
+         * Paint redDotPaint = new Paint(); redDotPaint.setColor(0xAAFF5722);
+         * redDotPaint.setStyle(Paint.Style.FILL); redDotPaint.setAntiAlias(true);
+         * canvas.drawCircle(0, -10, 2f, redDotPaint); canvas.restore(); }*
+         */
         if (hasGps) {
             double[] gpsWorld = latLngToWorldPixel(gpsLat, gpsLng, tileZoom);
             float gx = (float) (gpsWorld[0] - startX), gy = (float) (gpsWorld[1] - startY);
             canvas.save();
             canvas.translate(gx, gy);
             canvas.rotate(gpsBearing);
-            canvas.drawCircle(0, 0, 8, gpsStrokePaint);
-            canvas.drawCircle(0, 0, 6, gpsPaint);
+            canvas.drawCircle(0, 0, 12, gpsStrokePaint); // 8 → 12
+            canvas.drawCircle(0, 0, 9, gpsPaint); // 6 → 9
             Paint triPaint = new Paint();
             triPaint.setColor(0xCCFFFFFF);
             triPaint.setStyle(Paint.Style.FILL);
@@ -622,12 +636,12 @@ public class CanvasMapView extends View {
             Paint triBorder = new Paint();
             triBorder.setColor(0x33000000);
             triBorder.setStyle(Paint.Style.STROKE);
-            triBorder.setStrokeWidth(1f);
+            triBorder.setStrokeWidth(1.5f); // 1 → 1.5，保持描边比例
             triBorder.setAntiAlias(true);
             Path triPath = new Path();
-            triPath.moveTo(0, -10);
-            triPath.lineTo(-3.5f, -1);
-            triPath.lineTo(3.5f, -1);
+            triPath.moveTo(0, -15); // -10 → -15
+            triPath.lineTo(-5.25f, -1.5f); // -3.5/-1 → -5.25/-1.5
+            triPath.lineTo(5.25f, -1.5f);
             triPath.close();
             canvas.drawPath(triPath, triPaint);
             canvas.drawPath(triPath, triBorder);
@@ -635,7 +649,7 @@ public class CanvasMapView extends View {
             redDotPaint.setColor(0xAAFF5722);
             redDotPaint.setStyle(Paint.Style.FILL);
             redDotPaint.setAntiAlias(true);
-            canvas.drawCircle(0, -10, 2f, redDotPaint);
+            canvas.drawCircle(0, -15, 3f, redDotPaint); // -10 → -15，半径 2 → 3
             canvas.restore();
         }
 

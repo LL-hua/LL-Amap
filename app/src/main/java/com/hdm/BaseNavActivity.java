@@ -17,12 +17,16 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.graphics.drawable.GradientDrawable;
+import android.widget.ScrollView;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class BaseNavActivity extends Activity {
+// 在 BaseNavActivity 的成员变量区域加上
+    private AlertDialog roadDialog;
 // 在类成员变量区域添加
     private int easterEggClicks = 0;
     protected static final String[] TAB_KEYS = {"earth", "layout", "calc", "realmap"};
@@ -292,32 +296,130 @@ public abstract class BaseNavActivity extends Activity {
 
     protected void onRoadChanged() {} // 新增：路线切换回调
 
-    private void showRoadDialog() {
+        private void showRoadDialog() {
         MyApp app = (MyApp) getApplication();
         if (app.data == null) {
             Toast.makeText(this, "请先选择项目", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // 1. 收集所有路线数据
         List<String> names = new ArrayList<>();
         List<double[][]> pqxList = new ArrayList<>();
+        List<String> mileageList = new ArrayList<>();
 
+        // 主线
         names.add("主线");
         pqxList.add(app.data.pqx);
+        mileageList.add(getMileageString(app.data.pqx));
 
+        // 支线
         if (app.data.extraRoads != null) {
             for (MapRoadData r : app.data.extraRoads) {
                 names.add(r.name);
                 pqxList.add(r.pqx);
+                mileageList.add(getMileageString(r.pqx));
             }
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("选择当前路线")
-                .setItems(names.toArray(new String[0]), (d, which) -> {
-                    app.data.switchRoad(pqxList.get(which));
+        // 2. 动态构建列表UI
+        LinearLayout listLayout = new LinearLayout(this);
+        listLayout.setOrientation(LinearLayout.VERTICAL);
+        listLayout.setBackgroundColor(0xFF1E1E1E); // 深色背景，衬托纯白文字
+        listLayout.setPadding(dp(16), dp(8), dp(16), dp(8));
+
+        // 找出当前选中的索引
+        int selectedIndex = 0;
+        for (int i = 0; i < pqxList.size(); i++) {
+            if (pqxList.get(i) == app.data.currentPqx) {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        for (int i = 0; i < names.size(); i++) {
+            final int index = i;
+
+            // 每一行的布局
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(12), dp(12), dp(12), dp(12));
+
+            // 选中项高亮背景（深蓝色）
+            if (i == selectedIndex) {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(0xFF1976D2);
+                bg.setCornerRadius(dp(8));
+                row.setBackground(bg);
+            }
+
+            // 左侧：路线名称（纯白色）
+            TextView tvName = new TextView(this);
+            tvName.setText(names.get(i));
+            tvName.setTextSize(16);
+            tvName.setTextColor(Color.WHITE);
+            tvName.setTypeface(null, i == selectedIndex ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            LinearLayout.LayoutParams lpName = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            tvName.setLayoutParams(lpName);
+            row.addView(tvName);
+
+            // 右侧：起止里程（纯白色）
+            TextView tvMileage = new TextView(this);
+            tvMileage.setText(mileageList.get(i));
+            tvMileage.setTextSize(13);
+            tvMileage.setTextColor(Color.WHITE);
+            row.addView(tvMileage);
+
+            // 点击事件
+            row.setOnClickListener(v -> {
+                if (app.data.currentPqx != pqxList.get(index)) {
+                    app.data.switchRoad(pqxList.get(index));
                     updateHeaderNames();
                     onRoadChanged();
-                }).show();
+                }
+                if (roadDialog != null && roadDialog.isShowing()) {
+                    roadDialog.dismiss();
+                }
+            });
+
+            listLayout.addView(row);
+
+            // 除了最后一行，加一条深色分割线
+            if (i < names.size() - 1) {
+                View divider = new View(this);
+                divider.setBackgroundColor(0xFF333333);
+                LinearLayout.LayoutParams lpDiv = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+                lpDiv.leftMargin = dp(12);
+                lpDiv.rightMargin = dp(12);
+                divider.setLayoutParams(lpDiv);
+                listLayout.addView(divider);
+            }
+        }
+
+        // 3. 包装进 ScrollView（防止路线太多撑爆屏幕）
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(0xFF1E1E1E);
+        scrollView.addView(listLayout);
+
+        // 4. 显示弹窗（使用系统深色主题，保证标题栏和取消按钮也与深色列表协调）
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("选择路线");
+        builder.setView(scrollView);
+        builder.setNegativeButton("取消", null);
+
+        roadDialog = builder.create();
+        roadDialog.show();
+    }
+
+
+// 辅助方法：格式化起止里程
+    private String getMileageString(double[][] pqx) {
+        if (pqx == null || pqx.length == 0) return "--";
+        double startK = pqx[0][0];
+        int lastIdx = pqx.length - 1;
+        double endK = pqx[lastIdx][0] + pqx[lastIdx][4];
+        return LL.hua_Num2K(startK) + " ~ " + LL.hua_Num2K(endK);
     }
 
     private View buildBottomNav() {
