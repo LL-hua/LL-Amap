@@ -36,6 +36,7 @@ public class CadGpuOverlayView extends GLSurfaceView {
         requestRender();
     }
 
+    public LayerItem pickLayerAt(float sx, float sy) { return renderer.pickLayerAt(sx, sy); }
     public List<LayerItem> getLayerItems() { return renderer.layerItems; }
 
     public void setLayerItemVisible(int id, boolean vis) {
@@ -170,6 +171,49 @@ public class CadGpuOverlayView extends GLSurfaceView {
         }
 
         /** 与 CadGLSurfaceView.rebuildFromBin 完全一致的桶/文字/计数逻辑，仅顶点写 VBO 时走反投影 */
+                public LayerItem pickLayerAt(float sx, float sy) {
+            if (activeBuf == null || vertexCount == 0 || viewW <= 0 || viewH <= 0) return null;
+            int tileZoom = (int) Math.floor(zoom);
+            double worldSize = 256.0 * Math.pow(2.0, tileZoom);
+            double sinLat = Math.sin(centerLat * Math.PI / 180.0);
+            double cwX = (centerLng + 180.0) / 360.0 * worldSize;
+            double cwY = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * worldSize;
+            float totalScale = scaleFactor * (float) Math.pow(2.0, zoom - tileZoom);
+            double startX = cwX - (viewW / 2.0) / totalScale;
+            double startY = cwY - (viewH / 2.0) / totalScale;
+
+            double bestDistSq = 36.0 * 36.0;
+            int bestLayerId = -1;
+
+            for (DrawBatch b : batches) {
+                if (b.vertCount <= 0 || b.typeId == 0) continue;
+                if (b.typeId < typeVis.length && !typeVis[b.typeId]) continue;
+                if (b.layerId < layerVis.length && !layerVis[b.layerId]) continue;
+                int endV = b.startVert + b.vertCount;
+                for (int v = b.startVert; v + 1 < endV; v += 2) {
+                    int p1 = v * 6, p2 = (v + 1) * 6;
+                    float x1 = (float)(((originMercX + activeBuf.get(p1)) * worldSize - startX) * totalScale);
+                    float y1 = (float)(((originMercY + activeBuf.get(p1 + 1)) * worldSize - startY) * totalScale);
+                    float x2 = (float)(((originMercX + activeBuf.get(p2)) * worldSize - startX) * totalScale);
+                    float y2 = (float)(((originMercY + activeBuf.get(p2 + 1)) * worldSize - startY) * totalScale);
+
+                    float dx = x2 - x1, dy = y2 - y1;
+                    float lenSq = dx * dx + dy * dy;
+                    float t = (lenSq > 1e-6f) ? Math.max(0f, Math.min(1f, ((sx - x1) * dx + (sy - y1) * dy) / lenSq)) : 0f;
+                    float px = x1 + t * dx, py = y1 + t * dy;
+                    float distSq = (sx - px) * (sx - px) + (sy - py) * (sy - py);
+                    if (distSq < bestDistSq) {
+                        bestDistSq = distSq;
+                        bestLayerId = b.layerId;
+                    }
+                }
+            }
+            if (bestLayerId >= 0) {
+                for (LayerItem it : layerItems) if (it.id == bestLayerId) return it;
+            }
+            return null;
+        }
+
         public void buildFromBinary(byte[] bin, MyApp app) {
             this.rawBin = bin; this.rawApp = app;
             try {

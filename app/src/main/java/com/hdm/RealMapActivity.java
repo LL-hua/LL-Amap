@@ -340,6 +340,23 @@ public class RealMapActivity extends BaseNavActivity {
         mapBox.addView(cadGpuView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
         // 双向联动：底层动 -> 顶层 GPU 重绘
+        mapView.setOnSingleTapListener((tx, ty) -> {
+            if (cadGpuView == null || !cadGpuView.hasCadData()) return;
+            cadGpuView.updateViewport(mapView.getCenterLatitude(), mapView.getCenterLongitude(), mapView.getZoom());
+            CadGpuOverlayView.LayerItem hit = cadGpuView.pickLayerAt(tx, ty);
+            if (hit != null) {
+                new AlertDialog.Builder(this)
+                    .setTitle("选中图层: " + hit.name)
+                    .setMessage("该图层共有 " + hit.count + " 条图元，是否隐藏？")
+                    .setPositiveButton("隐藏该图层", (d, w) -> {
+                        cadGpuView.setLayerItemVisible(hit.id, false);
+                        Toast.makeText(this, "已隐藏图层: " + hit.name + " (可在菜单-图层控制恢复)", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+            }
+        });
+
         mapView.setOnViewportChangedListener((lat, lng, z) -> {
             if (cadGpuView != null) cadGpuView.updateViewport(lat, lng, z);
         });

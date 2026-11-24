@@ -39,7 +39,12 @@ public class CanvasMapView extends View {
         void onViewportChanged(double lat, double lng, float zoom);
     }
 
+    public interface OnSingleTapListener { void onSingleTap(float x, float y); }
+    private OnSingleTapListener singleTapListener;
+    public void setOnSingleTapListener(OnSingleTapListener l) { this.singleTapListener = l; }
     private OnViewportChangedListener viewportListener;
+    private final android.os.Handler longPressHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable longPressRunnable;
 
     public void setOnViewportChangedListener(OnViewportChangedListener listener) {
         this.viewportListener = listener;
@@ -160,6 +165,7 @@ public class CanvasMapView extends View {
         return centerLat;
     }
 
+    public float getZoom() { return zoom; }
     public double getCenterLongitude() {
         return centerLng;
     }
@@ -669,12 +675,17 @@ public class CanvasMapView extends View {
         if (action == MotionEvent.ACTION_DOWN) {
             lastX = event.getX();
             lastY = event.getY();
+            if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
+            final float downX = lastX, downY = lastY;
+            longPressRunnable = () -> { if (singleTapListener != null) singleTapListener.onSingleTap(downX, downY); };
+            longPressHandler.postDelayed(longPressRunnable, 450);
             if (moveAnimator != null) moveAnimator.cancel();
             if (zoomAnimator != null) zoomAnimator.cancel();
             return true;
         }
         if (action == MotionEvent.ACTION_POINTER_DOWN) {
             if (event.getPointerCount() >= 2) {
+                if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
                 lastDist = distance(event);
                 twoFingerDownTime = currentTime;
                 twoFingerStartX = (event.getX(0) + event.getX(1)) / 2f;
@@ -685,7 +696,7 @@ public class CanvasMapView extends View {
         if (action == MotionEvent.ACTION_MOVE) {
             if (event.getPointerCount() == 1) {
                 float dx = event.getX() - lastX, dy = event.getY() - lastY;
-                if (Math.abs(dx) > 20 || Math.abs(dy) > 20) lastTapTime = 0;
+                if (Math.abs(dx) > 20 || Math.abs(dy) > 20) { lastTapTime = 0; if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable); }
                 double worldSize = 256 * Math.pow(2, zoom);
                 centerLng -= (dx / scaleFactor) / worldSize * 360.0;
                 double latRad = centerLat * Math.PI / 180.0;
@@ -745,6 +756,7 @@ public class CanvasMapView extends View {
             return true;
         }
         if (action == MotionEvent.ACTION_UP) {
+            if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
             invalidate();
             if (currentTime - lastTapTime < 300) {
                 float dx = event.getX() - lastTapX, dy = event.getY() - lastTapY;
@@ -760,6 +772,7 @@ public class CanvasMapView extends View {
             return true;
         }
         if (action == MotionEvent.ACTION_CANCEL) {
+            if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
             invalidate();
             lastDist = 0;
             twoFingerDownTime = 0;
