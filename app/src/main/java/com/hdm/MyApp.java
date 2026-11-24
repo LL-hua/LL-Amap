@@ -10,7 +10,6 @@ import java.util.List;
 public class MyApp extends Application {
     private static MyApp instance;
     // 全局保存图纸文档，方便画布读取图层
-    public com.hdm.cad.drawing.Document currentDoc;
     public ProjectData data;
     public String currentProjectName;
     public File currentProjectFile;

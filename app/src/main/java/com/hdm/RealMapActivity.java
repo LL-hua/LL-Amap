@@ -829,14 +829,14 @@ public class RealMapActivity extends BaseNavActivity {
             btnCadText.setPadding(dp(12), dp(6), dp(12), dp(6));
 
 // 初始化按钮状态：去 mapView 里读取真实的显隐状态 (默认关闭是灰色)
-            boolean textOn = mapView.showCadText;
+            boolean textOn = cadGpuView.isShowCadText();
             btnCadText.setTextColor(textOn ? Color.WHITE : 0xFF555555);
             btnCadText.setBackground(makeRoundRectBg(textOn ? 0xFF0078D4 : 0xFFE0E0E0, 16));
 
 // 【新增】点击事件：切换状态并刷新界面
             btnCadText.setOnClickListener(v -> {
-                boolean newState = !mapView.showCadText;
-                mapView.setCadTextVisibility(newState);
+                boolean newState = !cadGpuView.isShowCadText();
+                cadGpuView.setCadVisibility(cadGpuView.isShowCadLine(), newState);
 
                 // 动态更新按钮颜色 (开启变蓝，关闭变灰)
                 btnCadText.setTextColor(newState ? Color.WHITE : 0xFF555555);
@@ -858,51 +858,13 @@ public class RealMapActivity extends BaseNavActivity {
         LinearLayout layerContainer = new LinearLayout(this);
         layerContainer.setOrientation(LinearLayout.VERTICAL);
 
-        List<Long> activeLayers = cadGpuView.getActiveLayerHandles();
-        for (Long handle : activeLayers) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(0, dp(4), 0, dp(4));
-
-            TextView tvLayerName = new TextView(this);
-            String layerName = "图层 " + handle;
-            if (app.currentDoc != null && app.currentDoc.layers != null) {
-                com.hdm.cad.drawing.Layer layer = app.currentDoc.layers.get(handle);
-                if (layer != null && layer.name != null && !layer.name.trim().isEmpty()) {
-                    layerName = layer.name;
-                }
-            }
-            tvLayerName.setText(layerName);
-            tvLayerName.setTextSize(14);
-            tvLayerName.setTextColor(0xFF333333);
-            tvLayerName.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            row.addView(tvLayerName);
-
-            final TextView btnToggle = new TextView(this);
-            btnToggle.setText("显示中");
-            btnToggle.setTextSize(13);
-            btnToggle.setPadding(dp(12), dp(4), dp(12), dp(4));
-            btnToggle.setTextColor(Color.WHITE);
-            btnToggle.setBackground(makeRoundRectBg(0xFF0078D4, 12));
-
-            btnToggle.setOnClickListener(v -> {
-                boolean isCurrentlyHidden = "已隐藏".equals(btnToggle.getText().toString());
-                if (isCurrentlyHidden) {
-                    btnToggle.setText("显示中");
-                    btnToggle.setTextColor(Color.WHITE);
-                    btnToggle.setBackground(makeRoundRectBg(0xFF0078D4, 12));
-                    cadGpuView.setLayerVisibility(handle, true);
-                } else {
-                    btnToggle.setText("已隐藏");
-                    btnToggle.setTextColor(0xFF555555);
-                    btnToggle.setBackground(makeRoundRectBg(0xFFE0E0E0, 12));
-                    cadGpuView.setLayerVisibility(handle, false);
-                }
-            });
-
-            row.addView(btnToggle);
-            layerContainer.addView(row);
+        for (CadGpuOverlayView.LayerItem item : cadGpuView.getLayerItems()) {
+            LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(4), 0, dp(4));
+            TextView tv = new TextView(this); tv.setText(item.name + " (" + item.count + ")"); tv.setTextSize(14); tv.setTextColor(0xFF333333); tv.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f)); row.addView(tv);
+            final TextView btn = new TextView(this); btn.setText(item.visible ? "显示中" : "已隐藏"); btn.setTextSize(13); btn.setPadding(dp(12), dp(4), dp(12), dp(4));
+            btn.setTextColor(item.visible ? Color.WHITE : 0xFF555555); btn.setBackground(makeRoundRectBg(item.visible ? 0xFF0078D4 : 0xFFE0E0E0, 12));
+            btn.setOnClickListener(v -> { boolean nv = !item.visible; cadGpuView.setLayerItemVisible(item.id, nv); btn.setText(nv ? "显示中" : "已隐藏"); btn.setTextColor(nv ? Color.WHITE : 0xFF555555); btn.setBackground(makeRoundRectBg(nv ? 0xFF0078D4 : 0xFFE0E0E0, 12)); });
+            row.addView(btn); layerContainer.addView(row);
         }
         layout.addView(layerContainer);
 
@@ -1506,65 +1468,28 @@ public class RealMapActivity extends BaseNavActivity {
     }
 
     private void loadDwgFile(File dwgFile) {
-        Toast.makeText(this, "正在解析图纸，请稍候...", Toast.LENGTH_SHORT).show();
-
+        Toast.makeText(this, "正在解析 2013 DWG 图纸...", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
+            long t0 = System.currentTimeMillis();
             try {
                 FileInputStream fis = new FileInputStream(dwgFile);
                 byte[] data = new byte[(int) dwgFile.length()];
-                int read = fis.read(data);
-                fis.close();
-                if (read <= 0) return;
-
-                com.hdm.cad.drawing.Document doc = com.hdm.cad.drawing.DwgParser.parse(data);
-
+                int off = 0, r; while (off < data.length && (r = fis.read(data, off, data.length - off)) != -1) off += r; fis.close();
+                boolean isDarkBg = currentMapSourceName != null && (currentMapSourceName.contains("深色") || currentMapSourceName.contains("卫星"));
+                byte[] bin = com.cadapp.DwgParser.parseToBinary(data, isDarkBg);
+                List<java.io.InputStream> fs = new ArrayList<>();
+                try {
+                    String[] as = getAssets().list(""); if (as != null) for (String a : as) if (a.toLowerCase().endsWith(".shx")) fs.add(getAssets().open(a));
+                    File[] fl = new File(Environment.getExternalStorageDirectory(), "1hdm").listFiles();
+                    if (fl != null) for (File f : fl) if (f.isFile() && f.getName().toLowerCase().endsWith(".shx")) fs.add(new FileInputStream(f));
+                } catch (Exception ignored) {}
+                com.cadapp.HzShxFontTool shx = new com.cadapp.HzShxFontTool(fs.toArray(new java.io.InputStream[0]));
+                long dt = System.currentTimeMillis() - t0;
                 runOnUiThread(() -> {
-                    if (doc != null && doc.modelSpace != null) {
-                        app.currentDoc = doc;
-
-                        // 【核心修改】全量加载 1hdm 下的所有 shx 字体
-                        try {
-                            File dir = new File(Environment.getExternalStorageDirectory(), "1hdm");
-                            File[] files = dir.listFiles();
-                            if (files != null) {
-                                List<FileInputStream> fontStreams = new ArrayList<>();
-                                for (File f : files) {
-                                    if (f.isFile() && f.getName().toLowerCase().endsWith(".shx")) {
-                                        fontStreams.add(new FileInputStream(f));
-                                    }
-                                }
-                                if (!fontStreams.isEmpty()) {
-                                    com.hdm.cad.drawing.ShxFontParser parser = new com.hdm.cad.drawing.ShxFontParser(
-                                    fontStreams.toArray(new FileInputStream[0])
-                                    );
-                                    cadGpuView.setShxFont(parser);
-                                    for (FileInputStream fs : fontStreams) fs.close();
-                                }
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-
-                        // 核心：几何给 GPU
-                        cadGpuView.setCadEntities(doc.modelSpace, app);
-// 文字给 Canvas (保底)
-                        mapView.setCadTextEntities(doc.modelSpace, app);
-
-// 【新增】图纸加载完后，立即应用本地保存的完美参数
-                        loadAndApplyCadTextParams();
-
-                        Toast.makeText(this, "图纸已贴合地图！图元数: " + doc.modelSpace.size(), Toast.LENGTH_LONG).show();
-
-                        Toast.makeText(this, "图纸已贴合地图！图元数: " + doc.modelSpace.size(), Toast.LENGTH_LONG).show();
-                        if (settingsDialog != null) settingsDialog.dismiss();
-                    } else {
-                        Toast.makeText(this, "解析成功，但未发现图元", Toast.LENGTH_SHORT).show();
-                    }
+                    if (bin != null && bin.length >= 44) { cadGpuView.setCadBinary(bin, app, shx); Toast.makeText(this, "2013 DWG 已贴合地图！(" + dt + "ms)", Toast.LENGTH_LONG).show(); if (settingsDialog != null) settingsDialog.dismiss(); }
+                    else Toast.makeText(this, "解析返回空，请确认图纸为 2013 DWG", Toast.LENGTH_SHORT).show();
                 });
-            } catch (Exception e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(this, "解析失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
+            } catch (Exception e) { e.printStackTrace(); runOnUiThread(() -> Toast.makeText(this, "解析失败: " + e.getMessage(), Toast.LENGTH_LONG).show()); }
         }).start();
     }
 

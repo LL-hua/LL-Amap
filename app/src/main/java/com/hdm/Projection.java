@@ -350,7 +350,8 @@ public class Projection {
                 targetXy[i * 2] = ctrlXy[i][0];
                 targetXy[i * 2 + 1] = ctrlXy[i][1];
             }
-            double[] cs4 = cs4(sourceXy, targetXy);
+            if (center >= 359 && ctrlLonLat.length > 0) center = 3.0 * Math.floor(ctrlLonLat[0][0] / 3.0 + 0.5);
+        double[] cs4 = cs4(sourceXy, targetXy);
             double[] lsxy = gauss_proj(lon, lat, center);
             return fourParameterTransform(lsxy[0], lsxy[1],
             cs4[0], cs4[1], cs4[2], cs4[3]);
@@ -367,7 +368,8 @@ public class Projection {
                 targetXy[i * 2] = ctrlXy[i][0];
                 targetXy[i * 2 + 1] = ctrlXy[i][1];
             }
-            double[] cs4 = cs4(sourceXy, targetXy);
+            if (center >= 359 && ctrlLonLat.length > 0) center = 3.0 * Math.floor(ctrlLonLat[0][0] / 3.0 + 0.5);
+        double[] cs4 = cs4(sourceXy, targetXy);
             double[] lsxy = utm_proj(lon, lat);
             return fourParameterTransform(lsxy[0], lsxy[1],
             cs4[0], cs4[1], cs4[2], cs4[3]);
@@ -381,6 +383,7 @@ public class Projection {
     // ============================================================
     public static double[] xy2Gps(double x, double y, String proj,
             double[][] ctrlLonLat, double[][] ctrlXy, double center) {
+        if (center >= 359 && ctrlLonLat != null && ctrlLonLat.length > 0) center = 3.0 * Math.floor(ctrlLonLat[0][0] / 3.0 + 0.5);
         String p = proj == null ? "" : proj.toLowerCase();
         int n = ctrlLonLat.length;
         if (n == 0) return new double[]{0, 0};
@@ -403,6 +406,7 @@ public class Projection {
         }
 
         // 算四参数
+        if (center >= 359 && ctrlLonLat.length > 0) center = 3.0 * Math.floor(ctrlLonLat[0][0] / 3.0 + 0.5);
         double[] cs4 = cs4(sourceXy, targetXy);
         double dx = cs4[0], dy = cs4[1], rot = cs4[2], scale = cs4[3];
 

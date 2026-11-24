@@ -1,6 +1,5 @@
 package com.hdm;
 
-import com.hdm.cad.entity.ColorResolver;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -155,36 +154,7 @@ public class CanvasMapView extends View {
         };
     }
 
-    public void setCadTextEntities(List<com.hdm.cad.entity.EntityBase> entities, MyApp app) {
-        cadTexts.clear();
-        if (entities == null || app == null || app.data == null) {
-            invalidate();
-            return;
-        }
-        for (com.hdm.cad.entity.EntityBase ent : entities) {
-            if (ent instanceof com.hdm.cad.entity.BasicEntities.EntText) {
-                com.hdm.cad.entity.BasicEntities.EntText txt = (com.hdm.cad.entity.BasicEntities.EntText) ent;
-                double[] lb = Projection.xy2Gps(txt.insertion.y, txt.insertion.x, app.data.projection, app.data.controlLonLat, app.data.controlXy, app.data.lonCenter);
-                if (lb != null && lb[0] != 0 && txt.text != null && !txt.text.isEmpty()) {
-                    latLngToMercatorFast(lb[1], lb[0]);
-                    CadTextModel ct = new CadTextModel();
-                    ct.mx = tmpMercator[0];
-                    ct.my = tmpMercator[1];
-                    ct.text = txt.text;
-                    ct.height = txt.height;
-                    ct.rotation = txt.rotation;
-                    int c = 0xFF000000;
-                    if (txt.color != null && txt.color.hasIndex) {
-                        int[] res = ColorResolver.aciColor(txt.color.index == 256 ? 7 : txt.color.index, true);
-                        if (res[3] == 1) c = Color.rgb(res[0], res[1], res[2]);
-                    }
-                    ct.color = c;
-                    cadTexts.add(ct);
-                }
-            }
-        }
-        invalidate();
-    }
+    public void setCadTextEntities(Object e, MyApp a) { cadTexts.clear(); invalidate(); }
 
     public double getCenterLatitude() {
         return centerLat;
