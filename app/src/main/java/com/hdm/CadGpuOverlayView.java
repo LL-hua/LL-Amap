@@ -186,7 +186,7 @@ public class CadGpuOverlayView extends GLSurfaceView {
             int bestLayerId = -1;
 
             for (DrawBatch b : batches) {
-                if (b.vertCount <= 0 || b.typeId == 0) continue;
+                if (b.vertCount <= 0 || (b.typeId == 0 && !showTexts) || (b.typeId != 0 && !showLines)) continue;
                 if (b.typeId < typeVis.length && !typeVis[b.typeId]) continue;
                 if (b.layerId < layerVis.length && !layerVis[b.layerId]) continue;
                 int endV = b.startVert + b.vertCount;
