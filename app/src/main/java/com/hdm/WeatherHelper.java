@@ -48,6 +48,54 @@ public class WeatherHelper {
         return "未知区域";
     }
 
+    private static String calcSunInfo(double lat, double lon) {
+        Calendar cal = Calendar.getInstance();
+        int doy = cal.get(Calendar.DAY_OF_YEAR);
+        double tzHours = cal.getTimeZone().getOffset(cal.getTimeInMillis()) / 3600000.0;
+        double hNow = cal.get(Calendar.HOUR_OF_DAY) + cal.get(Calendar.MINUTE) / 60.0 + cal.get(Calendar.SECOND) / 3600.0;
+        double gamma = 2.0 * Math.PI / 365.0 * (doy - 1 + (hNow - 12.0) / 24.0);
+        double eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
+                - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
+        double decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
+                - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
+                - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+        double latR = Math.toRadians(lat);
+        double cosHa = (Math.cos(Math.toRadians(90.833)) / (Math.cos(latR) * Math.cos(decl))) - Math.tan(latR) * Math.tan(decl);
+        double tst = (hNow * 60.0 + eqtime + 4.0 * lon - 60.0 * tzHours) % 1440.0;
+        if (tst < 0) tst += 1440.0;
+        double haNow = Math.toRadians(tst / 4.0 - 180.0);
+        double sinAlt = Math.sin(latR) * Math.sin(decl) + Math.cos(latR) * Math.cos(decl) * Math.cos(haNow);
+        double altDeg = Math.toDegrees(Math.asin(Math.max(-1.0, Math.min(1.0, sinAlt))));
+        double cosAz = (Math.sin(decl) - Math.sin(latR) * sinAlt) / (Math.cos(latR) * Math.cos(Math.toRadians(altDeg)) + 1e-9);
+        double azDeg = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, cosAz))));
+        if (Math.sin(haNow) > 0) azDeg = 360.0 - azDeg;
+
+        if (cosHa > 1.0) return "🌑 当前处于极夜状态\n";
+        if (cosHa < -1.0) return "☀️ 当前处于极昼状态\n";
+        double haDeg = Math.toDegrees(Math.acos(cosHa));
+        double sunriseMin = 720.0 - 4.0 * (lon + haDeg) - eqtime + tzHours * 60.0;
+        double sunsetMin = 720.0 - 4.0 * (lon - haDeg) - eqtime + tzHours * 60.0;
+        sunriseMin = (sunriseMin % 1440.0 + 1440.0) % 1440.0;
+        sunsetMin = (sunsetMin % 1440.0 + 1440.0) % 1440.0;
+
+        int srH = (int) (sunriseMin / 60), srM = (int) (sunriseMin % 60);
+        int ssH = (int) (sunsetMin / 60), ssM = (int) (sunsetMin % 60);
+        double nowMin = hNow * 60.0;
+        String status;
+        if (nowMin < sunriseMin) {
+            int diff = (int) Math.round(sunriseMin - nowMin);
+            status = String.format(Locale.US, "距离天亮日出还有 %d 小时 %d 分钟", diff / 60, diff % 60);
+        } else if (nowMin <= sunsetMin) {
+            int diff = (int) Math.round(sunsetMin - nowMin);
+            status = String.format(Locale.US, "距离天黑日落还有 %d 小时 %d 分钟", diff / 60, diff % 60);
+        } else {
+            int diff = (int) Math.round(1440.0 - nowMin + sunriseMin);
+            status = String.format(Locale.US, "已入夜 · 距明日日出 %d 小时 %d 分钟", diff / 60, diff % 60);
+        }
+        return String.format(Locale.US, "🌅 日出: %02d:%02d   🌇 日落: %02d:%02d\n⏳ %s\n🧭 太阳高度: %.1f°  方位: %.1f°\n",
+                srH, srM, ssH, ssM, status, altDeg, azDeg);
+    }
+
     public static WeatherInfo fetch(double lat, double lon) throws Exception {
         String u = String.format(Locale.US,
             "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,precipitation_probability,precipitation,weather_code&forecast_days=1&timezone=auto",
@@ -80,7 +128,7 @@ public class WeatherHelper {
         det.append(String.format(Locale.US, "📍 坐标: %.4f, %.4f  (更新于 %s)\n", lat, lon, updateTime));
         det.append(String.format(Locale.US, "🌡 当前: %s   %.1f°C (湿度 %d%%)\n", desc, temp, hum));
         det.append(String.format(Locale.US, "💨 风况: %.1f km/h (风向 %d°)\n\n", wind, wdir));
-        det.append("🕒 今日逐时段预报:\n");
+        det.append(calcSunInfo(lat, lon)).append("\n🕒 今日逐时段预报:\n");
 
         JSONObject hr = root.getJSONObject("hourly");
         JSONArray times = hr.getJSONArray("time");
