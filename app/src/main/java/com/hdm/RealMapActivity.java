@@ -67,6 +67,7 @@ public class RealMapActivity extends BaseNavActivity {
     private int currentSelectedRoad = 0;
     private boolean isShowRoadNames = false;
     private boolean isShowControlPoints = false;
+    private boolean isLongPressHideLayer = false;
 
     private String currentMapSourceName = "";
     private String lastSelectedRoadName = "主线";
@@ -310,6 +311,7 @@ public class RealMapActivity extends BaseNavActivity {
         SharedPreferences sp = getSharedPreferences("hdm_config", MODE_PRIVATE);
         currentMapSourceName = sp.getString("last_map_source_name", "谷歌路网");
         currentOffset = sp.getFloat("compass_offset", 180.0f);
+        isLongPressHideLayer = sp.getBoolean("long_press_hide_layer", false);
 
         String projName = (app != null && app.currentProjectName != null) ? app.currentProjectName : "default";
         String spRoadKey = "last_road_name_" + projName;
@@ -341,7 +343,7 @@ public class RealMapActivity extends BaseNavActivity {
 
         // 双向联动：底层动 -> 顶层 GPU 重绘
         mapView.setOnSingleTapListener((tx, ty) -> {
-            if (cadGpuView == null || !cadGpuView.hasCadData()) return;
+            if (!isLongPressHideLayer || cadGpuView == null || !cadGpuView.hasCadData()) return;
             cadGpuView.updateViewport(mapView.getCenterLatitude(), mapView.getCenterLongitude(), mapView.getZoom());
             CadGpuOverlayView.LayerItem hit = cadGpuView.pickLayerAt(tx, ty);
             if (hit != null) {
@@ -865,15 +867,74 @@ public class RealMapActivity extends BaseNavActivity {
         }
 
         // 7. 图层控制
+        LinearLayout layerHeader = new LinearLayout(this);
+        layerHeader.setOrientation(LinearLayout.HORIZONTAL);
+        layerHeader.setGravity(Gravity.CENTER_VERTICAL);
+        layerHeader.setPadding(0, dp(16), 0, dp(8));
         TextView tvLayersTitle = new TextView(this);
         tvLayersTitle.setText("图层控制");
         tvLayersTitle.setTextSize(14);
         tvLayersTitle.setTextColor(0xFF888888);
-        tvLayersTitle.setPadding(0, dp(16), 0, dp(8));
-        layout.addView(tvLayersTitle);
+        tvLayersTitle.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
+        layerHeader.addView(tvLayersTitle);
+
+        final List<TextView> allLayerBtns = new ArrayList<>();
+        TextView btnShowAll = new TextView(this);
+        btnShowAll.setText("打开所有图层");
+        btnShowAll.setTextSize(12);
+        btnShowAll.setTextColor(0xFF0078D4);
+        btnShowAll.setBackground(makeRoundRectBg(0xFFE3F2FD, 10));
+        btnShowAll.setPadding(dp(10), dp(4), dp(10), dp(4));
+        btnShowAll.setOnClickListener(v -> {
+            for (CadGpuOverlayView.LayerItem it : cadGpuView.getLayerItems()) cadGpuView.setLayerItemVisible(it.id, true);
+            for (TextView b : allLayerBtns) { b.setText("显示中"); b.setTextColor(Color.WHITE); b.setBackground(makeRoundRectBg(0xFF0078D4, 12)); }
+        });
+        layerHeader.addView(btnShowAll);
+
+        TextView btnHideAll = new TextView(this);
+        btnHideAll.setText("关闭所有图层");
+        btnHideAll.setTextSize(12);
+        btnHideAll.setTextColor(0xFFD32F2F);
+        btnHideAll.setBackground(makeRoundRectBg(0xFFFFEBEE, 10));
+        btnHideAll.setPadding(dp(10), dp(4), dp(10), dp(4));
+        LinearLayout.LayoutParams lpHideAll = new LinearLayout.LayoutParams(-2, -2);
+        lpHideAll.leftMargin = dp(8);
+        btnHideAll.setLayoutParams(lpHideAll);
+        btnHideAll.setOnClickListener(v -> {
+            for (CadGpuOverlayView.LayerItem it : cadGpuView.getLayerItems()) cadGpuView.setLayerItemVisible(it.id, false);
+            for (TextView b : allLayerBtns) { b.setText("已隐藏"); b.setTextColor(0xFF555555); b.setBackground(makeRoundRectBg(0xFFE0E0E0, 12)); }
+        });
+        layerHeader.addView(btnHideAll);
+        layout.addView(layerHeader);
 
         LinearLayout layerContainer = new LinearLayout(this);
         layerContainer.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout rowLpHide = new LinearLayout(this);
+        rowLpHide.setOrientation(LinearLayout.HORIZONTAL);
+        rowLpHide.setGravity(Gravity.CENTER_VERTICAL);
+        rowLpHide.setPadding(0, dp(6), 0, dp(10));
+        TextView tvLpHide = new TextView(this);
+        tvLpHide.setText("👆 长按图元隐藏对应图层");
+        tvLpHide.setTextSize(14);
+        tvLpHide.setTextColor(0xFF0078D4);
+        tvLpHide.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1f));
+        rowLpHide.addView(tvLpHide);
+        final TextView btnLpHide = new TextView(this);
+        btnLpHide.setText(isLongPressHideLayer ? "已开启" : "已关闭");
+        btnLpHide.setTextSize(13);
+        btnLpHide.setPadding(dp(12), dp(4), dp(12), dp(4));
+        btnLpHide.setTextColor(isLongPressHideLayer ? Color.WHITE : 0xFF555555);
+        btnLpHide.setBackground(makeRoundRectBg(isLongPressHideLayer ? 0xFF0078D4 : 0xFFE0E0E0, 12));
+        btnLpHide.setOnClickListener(v -> {
+            isLongPressHideLayer = !isLongPressHideLayer;
+            getSharedPreferences("hdm_config", MODE_PRIVATE).edit().putBoolean("long_press_hide_layer", isLongPressHideLayer).apply();
+            btnLpHide.setText(isLongPressHideLayer ? "已开启" : "已关闭");
+            btnLpHide.setTextColor(isLongPressHideLayer ? Color.WHITE : 0xFF555555);
+            btnLpHide.setBackground(makeRoundRectBg(isLongPressHideLayer ? 0xFF0078D4 : 0xFFE0E0E0, 12));
+        });
+        rowLpHide.addView(btnLpHide);
+        layerContainer.addView(rowLpHide);
 
         for (CadGpuOverlayView.LayerItem item : cadGpuView.getLayerItems()) {
             LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(0, dp(4), 0, dp(4));
@@ -881,7 +942,7 @@ public class RealMapActivity extends BaseNavActivity {
             final TextView btn = new TextView(this); btn.setText(item.visible ? "显示中" : "已隐藏"); btn.setTextSize(13); btn.setPadding(dp(12), dp(4), dp(12), dp(4));
             btn.setTextColor(item.visible ? Color.WHITE : 0xFF555555); btn.setBackground(makeRoundRectBg(item.visible ? 0xFF0078D4 : 0xFFE0E0E0, 12));
             btn.setOnClickListener(v -> { boolean nv = !item.visible; cadGpuView.setLayerItemVisible(item.id, nv); btn.setText(nv ? "显示中" : "已隐藏"); btn.setTextColor(nv ? Color.WHITE : 0xFF555555); btn.setBackground(makeRoundRectBg(nv ? 0xFF0078D4 : 0xFFE0E0E0, 12)); });
-            row.addView(btn); layerContainer.addView(row);
+            allLayerBtns.add(btn); row.addView(btn); layerContainer.addView(row);
         }
         layout.addView(layerContainer);
 
