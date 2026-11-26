@@ -76,6 +76,9 @@ public class RealMapActivity extends BaseNavActivity {
 
     private String rtkStatus = "未连接";
     private TextView tvRtkStatus;
+    private TextView tvWeather;
+    private String lastWeatherDetail = "正在获取实时气象...";
+    private boolean weatherFetched = false;
 
     @Override
     protected String currentTab() {
@@ -156,6 +159,32 @@ public class RealMapActivity extends BaseNavActivity {
 
             mapView.switchRoad(targetIndex);
         }
+    }
+
+    private void refreshWeather(final double lat, final double lon, final boolean force) {
+        SharedPreferences sp = getSharedPreferences("hdm_config", MODE_PRIVATE);
+        if (!force && (System.currentTimeMillis() - sp.getLong("weather_ts", 0L) < 2 * 3600 * 1000L)) return;
+        if (tvWeather != null) tvWeather.setText("⏳ 气象...");
+        new Thread(() -> {
+            try {
+                final WeatherHelper.WeatherInfo info = WeatherHelper.fetch(lat, lon);
+                runOnUiThread(() -> {
+                    lastWeatherDetail = info.detailText;
+                    if (tvWeather != null) tvWeather.setText(info.badgeText);
+                    getSharedPreferences("hdm_config", MODE_PRIVATE).edit()
+                        .putString("weather_badge", info.badgeText)
+                        .putString("weather_detail", info.detailText)
+                        .putLong("weather_ts", System.currentTimeMillis()).apply();
+                });
+            } catch (final Exception e) {
+                runOnUiThread(() -> {
+                    lastWeatherDetail = "获取天气失败（请检查网络连接）: " + e.getMessage();
+                    if (tvWeather != null && getSharedPreferences("hdm_config", MODE_PRIVATE).getString("weather_badge", null) == null) {
+                        tvWeather.setText("☁️ 离线");
+                    }
+                });
+            }
+        }).start();
     }
 
     private void setupRtk() {
@@ -249,6 +278,7 @@ public class RealMapActivity extends BaseNavActivity {
             mapView.updateGps(newLonLat[1], newLonLat[0], stationStr, offsetStr);
         } else {
             mapView.updateGps(lat, lon, stationStr, offsetStr);
+            if (!weatherFetched) { weatherFetched = true; refreshWeather(lat, lon, false); }
         }
     }
 
@@ -388,6 +418,37 @@ public class RealMapActivity extends BaseNavActivity {
         lpRtk.topMargin = dp(16);
         tvRtkStatus.setLayoutParams(lpRtk);
         mapBox.addView(tvRtkStatus);
+
+        tvWeather = new TextView(this);
+        tvWeather.setText("⛅ 天气");
+        tvWeather.setTextSize(12);
+        tvWeather.setTextColor(0xFF0078D4);
+        tvWeather.setBackground(makeRoundRectBg(0xE8FFFFFF, 8));
+        tvWeather.setElevation(dp(3));
+        tvWeather.setPadding(dp(10), dp(6), dp(10), dp(6));
+        FrameLayout.LayoutParams lpW = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
+        lpW.topMargin = dp(72);
+        lpW.leftMargin = dp(16);
+        tvWeather.setLayoutParams(lpW);
+        tvWeather.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                .setTitle("工地实时气象台")
+                .setMessage(lastWeatherDetail)
+                .setPositiveButton("确定", null)
+                .setNeutralButton("刷新", (d, w) -> refreshWeather(mapView.getCenterLatitude(), mapView.getCenterLongitude(), true))
+                .show();
+        });
+        mapBox.addView(tvWeather);
+        String cBadge = sp.getString("weather_badge", null);
+        String cDet = sp.getString("weather_detail", null);
+        long cTime = sp.getLong("weather_ts", 0L);
+        if (cBadge != null && cDet != null) {
+            tvWeather.setText(cBadge);
+            lastWeatherDetail = cDet;
+        }
+        if (System.currentTimeMillis() - cTime >= 2 * 3600 * 1000L) {
+            refreshWeather(-3.83, 32.60, false);
+        }
 
         LinearLayout offsetLayout = new LinearLayout(this);
         offsetLayout.setOrientation(LinearLayout.HORIZONTAL);
