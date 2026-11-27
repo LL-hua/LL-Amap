@@ -40,7 +40,7 @@ public class HzShxFontTool {
 
     private void parseShxData(byte[] data) {
         Map<Integer, List<List<Pt>>> indexed = parseIndexTable(data);
-        if (indexed.size() >= 64) {
+        if (indexed.size() >= 16) {
             for (Map.Entry<Integer, List<List<Pt>>> e : indexed.entrySet()) {
                 shxGlyphs.putIfAbsent(e.getKey(), e.getValue());
             }
@@ -145,7 +145,15 @@ public class HzShxFontTool {
             List<List<Pt>> polys = getGlyphPolylines(ch);
             if (!polys.isEmpty()) {
                 double gMinX = Double.POSITIVE_INFINITY, gMaxX = Double.NEGATIVE_INFINITY;
-                for (List<Pt> pl : polys) for (Pt p : pl) { gMinX = Math.min(gMinX, p.x); gMaxX = Math.max(gMaxX, p.x); }
+                double gMinY = Double.POSITIVE_INFINITY, gMaxY = Double.NEGATIVE_INFINITY;
+                for (List<Pt> pl : polys) for (Pt p : pl) {
+                    gMinX = Math.min(gMinX, p.x); gMaxX = Math.max(gMaxX, p.x);
+                    gMinY = Math.min(gMinY, p.y); gMaxY = Math.max(gMaxY, p.y);
+                }
+                double shiftY = 0.0;
+                if (ch >= 0x4E00 && ch <= 0x9FA5 && gMinY < -12.0) {
+                    shiftY = -10.0 - gMinY;
+                }
                 double glyphW = (ch == '.' || ch == ',' || ch == ':' || ch == '：' || ch == '，' || ch == '．')
                         ? Math.max(12.0, gMaxX - gMinX)
                         : Math.max(24.0, gMaxX - gMinX);
@@ -154,7 +162,7 @@ public class HzShxFontTool {
                     List<Pt> tr = new ArrayList<>(pl.size());
                     for (Pt p : pl) {
                         double sx = cursorX + (p.x - gMinX) * scale;
-                        double sy = baselineY + p.y * scale;
+                        double sy = baselineY + (p.y + shiftY) * scale;
                         minX = Math.min(minX, sx); minY = Math.min(minY, sy);
                         maxX = Math.max(maxX, sx); maxY = Math.max(maxY, sy);
                         tr.add(new Pt(sx, sy));
@@ -173,8 +181,10 @@ public class HzShxFontTool {
         List<List<Pt>> polylines = new ArrayList<>(); List<Pt> cur = new ArrayList<>();
         while (i + 1 < end) {
             int op1 = data[i] & 0xFF, op2 = data[i + 1] & 0xFF;
-            if (op1 == 0x00 && op2 == 0x00) { if (!cur.isEmpty()) { polylines.add(cur); cur = new ArrayList<>(); } i += 2; }
-            else if (op1 == 0x02 && op2 == 0x08 && i + 3 < end) {
+            if (op1 == 0x00 && op2 == 0x00) {
+                if (!cur.isEmpty()) { polylines.add(cur); cur = new ArrayList<>(); }
+                i += 2;
+            } else if (op1 == 0x02 && op2 == 0x08 && i + 3 < end) {
                 if (!cur.isEmpty()) { polylines.add(cur); cur = new ArrayList<>(); }
                 int nx = x + data[i + 2], ny = y + data[i + 3];
                 if (!isReasonableCoord(nx, ny)) return Collections.emptyList();
@@ -184,15 +194,23 @@ public class HzShxFontTool {
                 int nx = x + data[i + 2], ny = y + data[i + 3];
                 if (!isReasonableCoord(nx, ny)) return Collections.emptyList();
                 x = nx; y = ny; cur.add(new Pt(x, y)); i += 4;
-            } else if (op1 == 0x01 && op2 == 0x09) {
-                if (cur.isEmpty()) cur.add(new Pt(x, y)); i += 2;
+            } else if ((op1 == 0x01 || op1 == 0x02) && op2 == 0x09) {
+                boolean draw = (op1 == 0x01);
+                if (!draw && !cur.isEmpty()) { polylines.add(cur); cur = new ArrayList<>(); }
+                if (draw && cur.isEmpty()) cur.add(new Pt(x, y));
+                i += 2;
                 while (i + 1 < end) {
                     int b0 = data[i] & 0xFF, b1 = data[i + 1] & 0xFF;
-                    if ((b0 == 0x00 && b1 == 0x00) || ((b0 == 0x01 || b0 == 0x02) && (b1 == 0x08 || b1 == 0x09))) break;
+                    if (b0 == 0x00 && b1 == 0x00) { i += 2; break; }
                     int nx = x + data[i], ny = y + data[i + 1];
                     if (!isReasonableCoord(nx, ny)) return Collections.emptyList();
-                    x = nx; y = ny; cur.add(new Pt(x, y)); i += 2;
+                    x = nx; y = ny;
+                    if (draw) cur.add(new Pt(x, y));
+                    i += 2;
                 }
+                if (!draw) cur.add(new Pt(x, y));
+            } else if (op1 == 0x0E) {
+                i += (op2 == 0x08 && i + 3 < end) ? 4 : 2;
             } else i += 1;
         }
         if (!cur.isEmpty()) polylines.add(cur);
